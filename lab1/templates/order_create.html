@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Заказ</title>
+</head>
+<body>
+    <h1>Создание заказа</h1>
+    <form method="POST">
+        {% csrf_token %}
+        <p>
+            <label>Клиент: </label>
+            <select name="client" class="client-select" required>
+                <option value="">Выберите клиента...</option>
+                {% for cl in clients %}
+                    <option value="{{ cl.id }}">{{ cl.name }}</option>
+                {% endfor %}
+            </select>
+        </p>
+
+        <p>
+            <label>Способ оплаты:</label>
+            <label><input type="radio" name="payment" value="cash" checked>Наличный</label>
+            <label><input type="radio" name="payment" value="card">Безналичный</label>
+            <label><input type="radio" name="payment" value="credit">Кредитный</label>
+            <label><input type="radio" name="payment" value="barter">Бартер</label>
+            <label><input type="radio" name="payment" value="return">Взаимозачет</label>
+        </p>
+
+        <div>
+        <h3>Корзина товаров</h3>
+        <table border="1">
+            <thead>
+                <tr>
+                    <th>Товар</th>
+                    <th>Цена, руб.</th>
+                    <th>На складе, шт.</th>
+                    <th>Кол-во, шт.</th>
+                    <th>Cумма к оплате, руб.</th>
+                </tr>
+            </thead>
+            <tbody id="items-container">
+                <tr class="product-row">
+                    <td>
+                        <select name="products[]" class="product-select" onchange="updateRowInfo(this)" required>
+                        <option value="" data-price="0" data-stock="0">Выберите товар...</option>
+                            {% for p in products %}
+                                <option value="{{ p.id }}" data-price="{{ p.price }}" data-stock="{{ p.stock }}">
+                                    {{ p.name }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </td>
+                    <td>
+                        <span class="price">0.00</span>
+                    </td>
+                    <td>
+                        <span class="stock">0</span>
+                    </td>
+                    <td>
+                        <input type="number" name="stocks[]" class="qty-input"
+                               value="1" oninput="validateQty(this)">
+                    </td>
+                    <td>
+                        <span class="sum">0.00</span>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+        <button type="button" onclick="addRow()">Добавить еще товар</button>
+        <p>
+            Итоговая сумма товаров <span id="total-sum">0.00</span> руб.
+        </p>
+        </div>
+
+        <div id='barter-section' style="display: none">
+        <h3>Товары на обмен</h3>
+        <table border="1">
+            <thead>
+            <tr>
+                <th>Товар</th>
+                <th>Цена, руб.</th>
+                <th>Кол-во, шт.</th>
+                <th>Сумма, руб.</th>
+            </tr>
+            </thead>
+            <tbody id="barter-items-container">
+                <tr class="barter-row">
+                    <td>
+                        <select name="barter_products[]" class="barter-select" onchange="updateBarterRow(this)">
+                            <option value="" data-price="0">Выберите товар...</option>
+                            {% for p in products %}
+                                <option value="{{ p.id }}" data-price="{{ p.price }}">{{ p.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </td>
+                    <td>
+                        <span class="b-price">0</span>
+                    </td>
+                    <td>
+                        <input type="number" name="barter_stocks[]" class="b-qty-input" value="1" oninput="calculateBarterTotal()">
+                    </td>
+                    <td>
+                        <span class="b-sum">0.00</span>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+        <button type="button" onclick="addBarterRow()">Добавить товар клиента</button>
+        <p>
+            Итоговая сумма товаров (от клиента): <span id="barter-total-sum">0.00</span> руб.
+        </p>
+        </div>
+
+        <p>
+            <button type="submit">Оформить заказ</button>
+        </p>
+    </form>
+
+    {% if messages %}
+    {% for message in messages %}
+        <div style="padding: 10px; background-color: #ffcccc; color: #cc0000; border: 1px solid #cc0000; margin-bottom: 20px;">
+            {{ message }}
+        </div>
+    {% endfor %}
+    {% endif %}
+
+    <p>
+        <a href= "{% url 'homepage' %}">
+            <button>На главную страницу</button>
+        </a>
+    </p>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const paymentRadio = document.querySelectorAll('input[name="payment"]');
+        const barterSection = document.getElementById('barter-section');
+
+        //проверка для всех выборов способа оплаты
+        function add_tables() {
+            const selectedPayment = document.querySelector('input[name="payment"]:checked').value;
+            if (selectedPayment === 'barter')
+            {
+                barterSection.style.display = 'block';
+            }
+            else
+            {
+                barterSection.style.display = 'none';
+            }
+        }
+
+        paymentRadio.forEach(radio =>
+        {
+            radio.addEventListener('change', add_tables);
+        });
+});
+
+    function isDuplicate(selectElement) {
+        const allSelects = document.querySelectorAll('.product-select');
+        for (let otherSelect of allSelects) {
+            if (otherSelect !== selectElement && otherSelect.value === selectElement.value && selectElement.value !== "") {
+                return true;
+            }
+        }
+        return false;
+    }
+
+//выбор товара, обновление информации цены и количества
+    function updateRowInfo(selectElement) {
+        const row = selectElement.closest('.product-row');
+        const selectedOption = selectElement.options[selectElement.selectedIndex];
+
+        if (isDuplicate(selectElement)) {
+            alert("Этот товар уже добавлен в заказ. Выберите другой.");
+            selectElement.value = "";
+        }
+        // получение данных о цене и кол-ве товара
+        const price = selectedOption.getAttribute('data-price');
+        const stock = selectedOption.getAttribute('data-stock');
+        row.querySelector('.price').innerText = price;
+        row.querySelector('.stock').innerText = stock;
+        //проверка на количество товара в заказе
+        validateQty(row.querySelector('.qty-input'));
+    }
+
+    //проверка на количество товара в заказе
+    function validateQty(inputElement)
+    {
+        const paymentMethod = document.querySelector('input[name="payment"]:checked').value
+        const row = inputElement.closest('.product-row');
+        const price = parseFloat(row.querySelector('.price').innerText);
+        const stock = parseInt(row.querySelector('.stock').innerText);
+        const qty = parseInt(inputElement.value);
+
+        if (((qty > 0) && (paymentMethod === 'return' || (qty <= stock))))
+        {
+            inputElement.style.color = 'black';
+            inputElement.style.fontWeight = 'normal';
+            totalSum();
+
+            row.querySelector('.price').innerText = price;
+            row.querySelector('.stock').innerText = stock;
+            const total = price * qty;
+            row.querySelector('.sum').innerText = total.toFixed(2);
+        }
+        else
+        {
+            inputElement.style.color = 'red';
+            inputElement.style.fontWeight = 'normal';
+        }
+    }
+
+    function addRow() {
+        const container = document.getElementById('items-container');
+        const firstRow = document.querySelector('.product-row');
+        const newRow = firstRow.cloneNode(true); //добавление дубликата первой опции
+        newRow.querySelector('.qty-input').value = 1;
+        newRow.querySelector('.price').innerText = '0';
+        newRow.querySelector('.stock').innerText = '0';
+        newRow.querySelector('.sum').innerText = '0.00';
+        newRow.querySelector('.product-select').selectedIndex = 0;
+        container.appendChild(newRow);
+    }
+
+    //отдельно для barter, т.к. слишком много требует своего, будучи отдельной таблицей
+    function updateBarterRow(select) {
+        const row = select.closest('.barter-row');
+        const price = select.options[select.selectedIndex].getAttribute('data-price');
+        row.querySelector('.b-price').innerText = price;
+        calculateBarterTotal();
+    }
+
+    function calculateBarterTotal() {
+        let total = 0;
+        document.querySelectorAll('.barter-row').forEach(row => {
+            const price = parseFloat(row.querySelector('.b-price').innerText) || 0;
+            const qty = parseInt(row.querySelector('.b-qty-input').value) || 0;
+            const sum = price * qty;
+            row.querySelector('.b-sum').innerText = sum.toFixed(2);
+            total += sum;
+        });
+        document.getElementById('barter-total-sum').innerText = total.toFixed(2);
+    }
+
+    function addBarterRow() {
+        const container = document.getElementById('barter-items-container');
+        const firstRow = document.querySelector('.barter-row');
+        const newRow = firstRow.cloneNode(true);
+        newRow.querySelector('.b-qty-input').value = 1;
+        newRow.querySelector('.b-price').innerText = '0';
+        newRow.querySelector('.b-sum').innerText = '0';
+        newRow.querySelector('.barter-select').selectedIndex = 0;
+        container.appendChild(newRow);
+    }
+
+    //общая сумма заказа
+    function totalSum() {
+        const paymentMethod = document.querySelector('input[name="payment"]:checked').value
+        let total = 0;
+
+        document.querySelectorAll('.product-row').forEach(row => {
+            const price = parseFloat(row.querySelector('.price').innerText) || 0;
+            const qty = parseInt(row.querySelector('.qty-input').value) || 0;
+            total += price * qty;
+        });
+        document.getElementById('total-sum').innerText = total.toFixed(2); //две цифры после запятой
+        if (paymentMethod === 'barter')
+        {
+            calculateBarterTotal();
+        }
+    }
+</script>
+</body>
+
+</html>

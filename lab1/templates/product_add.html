@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Склад</title>
+    <style>
+        .regular {}
+        .error {color: red;}
+    </style>
+</head>
+<body>
+    <h1>Управление складом</h1>
+    <h2>Добавить товар</h2>
+    <form method="POST">
+        {% csrf_token %}
+        <div class="regular">
+            {{ form.name.label }}: {{ form.name }}
+        </div>
+
+        <div>
+            {{ form.price.label }}:
+            {% if form.price_error == "" %}
+                <span class="regular">{{ form.price }}</span>
+            {% else %}
+                {{ form.price }} <span class="error">{{ form.price_error }}</span>
+            {% endif %}
+        </div>
+
+        <div class="regular">
+            {{ form.stock.label }}: {{ form.stock }} <span class="error">{{ form.stock_error }}</span>
+        </div>
+        <button type="submit">Внести</button>
+    </form>
+
+    <p>
+        <a href= "{% url 'product_base' %}">
+            <button>Назад</button>
+        </a>
+    </p>
+    <p>
+        <a href= "{% url 'homepage' %}">
+            <button>На главную страницу</button>
+        </a>
+    </p>
+</body>
+</html>

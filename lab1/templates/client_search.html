@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Поиск клиента</title>
+</head>
+<body>
+    <h1>Найти клиента</h1>
+    <form method="POST">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit">Найти</button>
+    </form>
+
+    <p>
+        <a href= "{% url 'client_base' %}">
+            <button>Назад</button>
+        </a>
+    </p>
+    <p>
+        <a href= "{% url 'homepage' %}">
+            <button>На главную страницу</button>
+        </a>
+    </p>
+
+    <table border="1">
+        <tr>
+            <th>Имя</th>
+            <th>Общий счет покупок</th>
+            <th>Текущий счет</th>
+            <th>Потолок кредита</th>
+            <th>Текущий долг</th>
+            <th>Остаток кредита</th>
+            <th>Комментарий</th>
+        </tr>
+
+        {% for cl in clients %}
+        <tr>
+          <td>{{ cl.name }}</td>
+          <td>{{ cl.a_total }}</td>
+          <td>{{ cl.a_current }}</td>
+          <td>{{ cl.c_limit }}</td>
+          <td>{{ cl.c_current }}</td>
+          <td>{{ cl.credit_remain }}</td>
+          <td>{{ cl.comm }}</td>
+        </tr>
+        {% empty %}
+            <tr><td colspan="7">Ничего не найдено.</td></tr>
+        {% endfor %}
+    </table>
+</body>
+</html>
