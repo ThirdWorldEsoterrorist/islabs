@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Учёт издержек</title>
+    <style>
+        body { font-family: sans-serif; max-width: 700px; margin: 100px auto; text-align: center; background: #f9f9f9; color: #333; }
+        h1 { margin-bottom: 40px; font-weight: 300; }
+        .btn-container { display: flex; justify-content: space-between; gap: 10px; }
+        .btn { flex: 1; padding: 15px 10px; font-size: 16px; color: white; background: #007BFF; border: none; border-radius: 5px; cursor: pointer; text-decoration: none; transition: 0.2s; text-align: center; }
+        .btn:hover { background: #0056b3; }
+        .btn-add { background: #6f42c1; }
+        .btn-add:hover { background: #5a32a3; }
+        .btn-report { background: #28a745; }
+        .btn-report:hover { background: #218838; }
+    </style>
+</head>
+<body>
+    <h1>Система управления издержками</h1>
+    <div class="btn-container">
+        <a href="{% url 'expense_table' %}" class="btn">Таблица издержек</a>
+        <a href="{% url 'add_expense' %}" class="btn btn-add">Добавить данные об издержке</a>
+        <a href="{% url 'create_report' %}" class="btn btn-report">Создать отчёт</a>
+    </div>
+</body>
+</html>
