@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head><title>Список сотрудников</title></head>
+<body>
+    <h3>Вы вошли как: {{ current_user.login }}, должность: {{ current_user.get_role_display }}</h3>
+
+    <a href="{% url 'logout' %}">
+        <button>Выйти на страницу авторизации</button>
+    </a>
+
+    <div>
+        {% if messages %}
+            {% for message in messages %}
+                <div style="color: {% if message.tags == 'success' %}green{% else %}red{% endif %}; font-weight: bold;">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
+    </div>
+
+    <div>
+        {% if current_role == 'dir' %}
+            <button onclick="openModal('create')">Добавить нового сотрудника</button>
+        {% endif %}
+    </div>
+
+    <p>
+    <table border="1">
+        <thead>
+            <tr>
+                <th>ФИО</th>
+                <th>Должность</th>
+                {% if current_role != 'guest' %}
+                    <th>Логин</th>
+                    <th>Адрес</th>
+                {% endif %}
+                <th>Рабочий телефон</th>
+                {% if current_role != 'guest' %}
+                    <th>Личный телефон</th>
+                {% endif %}
+                {% if current_role == 'dir' or current_role == 'undir' %}
+                    <th>Действия</th>
+                {% endif %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for emp in employees %}
+            <tr>
+                <td>{{ emp.last_name }} {{ emp.first_name }} {{ emp.middle_name }}</td>
+                <td>{{ emp.get_role_display }}</td>
+                <td>{{ emp.work_phone }}</td>
+                {% if current_role != 'guest' %}
+                    <td>{{ emp.login }}</td>
+                    <td>{{ emp.address }}</td>
+                    <td>{{ emp.personal_phone }}</td>
+                {% endif %}
+                <td>
+                    {% if current_role == 'dir' and emp.role != 'guest'%}
+                        <button onclick="openModal('edit', '{{ emp.id }}', {
+                            lastName: '{{ emp.last_name }}',
+                            firstName: '{{ emp.first_name }}',
+                            middleName: '{{ emp.middle_name }}',
+                                login: '{{ emp.login }}',
+                                password: '{{ emp.password }}',
+                            role: '{{ emp.role }}',
+                            address: '{{ emp.address }}',
+                            workPhone: '{{ emp.work_phone }}',
+                            personalPhone: '{{ emp.personal_phone }}'
+                        })">Изменить</button>
+                    {% endif %}
+                    {% if current_role == 'dir' and emp.role == 'guest'%}
+                        <button onclick="openModal('edit', '{{ emp.id }}', {
+                            lastName: '{{ emp.last_name }}',
+                            firstName: '{{ emp.first_name }}',
+                            middleName: '{{ emp.middle_name }}',
+                                login: '{{ emp.login }}',
+                            role: '{{ emp.role }}',
+                            address: '{{ emp.address }}',
+                            workPhone: '{{ emp.work_phone }}',
+                            personalPhone: '{{ emp.personal_phone }}'
+                        })">Изменить</button>
+                    {% endif %}
+                    {% if current_role == 'undir' and emp.role != 'dir' and emp.role != 'guest' %}
+                        <button onclick="openModal('edit', '{{ emp.id }}', {
+                            lastName: '{{ emp.last_name }}',
+                            firstName: '{{ emp.first_name }}',
+                            middleName: '{{ emp.middle_name }}',
+                                login: '{{ emp.login }}',
+                                password: '{{ emp.password }}',
+                            role: '{{ emp.role }}',
+                            address: '{{ emp.address }}',
+                            workPhone: '{{ emp.work_phone }}',
+                            personalPhone: '{{ emp.personal_phone }}'
+                        })">Изменить</button>
+                    {% endif %}
+                    {% if current_role == 'undir' and emp.role != 'dir' and emp.role == 'guest' %}
+                        <button onclick="openModal('edit', '{{ emp.id }}', {
+                            lastName: '{{ emp.last_name }}',
+                            firstName: '{{ emp.first_name }}',
+                            middleName: '{{ emp.middle_name }}',
+                                login: '{{ emp.login }}',
+                            role: '{{ emp.role }}',
+                            address: '{{ emp.address }}',
+                            workPhone: '{{ emp.work_phone }}',
+                            personalPhone: '{{ emp.personal_phone }}'
+                        })">Изменить</button>
+                    {% endif %}
+                    {% if current_role == 'dir' and emp.role != 'dir' %}
+                        <button href="{% url 'delete_employee' emp.id %}" onclick="return confirm('Вы уверены?')">Удалить</button>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    </p>
+
+    <div id="modalOverlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:1000;">
+        <div style="background:white; width:450px; margin:2% auto; padding:20px; border-radius:10px;">
+            <h3 id="modalTitle">Редактирование</h3>
+            <form id="employeeForm" method="POST" onsubmit="return validatePhoneJS()">
+                {% csrf_token %}
+                {{ form.as_p }}
+                <p id="phoneError" style="color:red; display:none;">Неверный формат телефона. Правильный формат: +*** *** *** ** ** (без пробелов)</p>
+                <div style="text-align:right;">
+                    <button type="button" onclick="closeModal()">Отмена</button>
+                    <button type="submit">Сохранить</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        //создание окна для создания/редактирования данных о сотруднике
+        function openModal(mode, empId = null, data = null) {
+            const form = document.getElementById('employeeForm');
+            const title = document.getElementById('modalTitle'); //заголовок всплывающего окна в зависимости от режима
+
+            //режим создания
+            if (mode === 'create')
+            {
+                title.innerText = "Создание сотрудника";
+                form.action = "{% url 'create_employee' %}"; //форма появляется не на отдельной странице, а во всплывающем окне
+                form.reset(); //сброс данных, ранее бывших в форме
+            }
+            //режим редактирования
+            else
+            {
+                title.innerText = "Редактирование";
+                form.action = `/edit/${empId}/`; // edit / ID редактируемого сотрудника
+                const roleInput = document.getElementById('id_role');
+                const roleContainer = roleInput ? roleInput.closest('p') : null; //поле выбора роли
+                const currentUserId = "{{ current_user.id }}";
+
+                if (String(empId) === String(currentUserId)) //редактирует пользователь свой же профиль
+                {
+                    roleContainer.style.display = 'none'; //поле с выбором роли пропадает
+                }
+                else //редактирует чужой
+                {
+                    roleContainer.style.display = 'block';
+                }
+
+                const fieldMap = { //т.к. редактируется существующий профиль, создаем ключи, чтобы по ним внести
+                    // в поля данные профиля текущие
+                    lastName: 'id_last_name',
+                    firstName: 'id_first_name',
+                    middleName: 'id_middle_name',
+                    password: 'id_password',
+                    login: 'id_login',
+                    role: 'id_role',
+                    address: 'id_address',
+                    workPhone: 'id_work_phone',
+                    personalPhone: 'id_personal_phone'
+                };
+
+                for (let key in data) { //заполнение по ключам полей данными профиля
+                    let inputId = fieldMap[key];
+                    let input = document.getElementById(inputId);
+                    if (input) {
+                        input.value = data[key];
+                    }
+                }
+            }
+            document.getElementById('modalOverlay').style.display = 'block'; //отображается окно всплывающее
+        }
+
+        //подтвердить, соответствует ли написанное в поле для телефона формату телефонного номера
+        function validatePhoneJS() {
+            const regex = /^\+?[\d]{9,15}$/;
+            const work = document.getElementById('id_work_phone').value;
+            if (!regex.test(work))
+            {
+                document.getElementById('phoneError').style.display = 'block';
+                return false;
+            }
+            return true;
+        }
+
+        //закрытие всплывающего окна (через кнопку "Отмена" или "Сохранить")
+        function closeModal() {
+            document.getElementById('modalOverlay').style.display = 'none';
+        }
+    </script>
+</body>
+</html>
