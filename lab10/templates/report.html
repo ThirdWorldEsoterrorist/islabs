@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Формирование отчета</title>
+    <style>
+        body { font-family: sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; color: #333; }
+        a { text-decoration: none; color: #007BFF; }
+        form { background: #f4f4f4; padding: 20px; border-radius: 5px; margin: 20px 0; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input, select { width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
+        .btn { padding: 10px 20px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        .btn-download { background: #17a2b8; margin-top: 15px; display: inline-block; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { padding: 12px; border: 1px solid #ddd; text-align: left; }
+        th { background-color: #f2f2f2; }
+        .total { font-size: 18px; font-weight: bold; margin-top: 15px; text-align: right; }
+        .error-msg { color: red; display: none; margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+    <a href="{% url 'index' %}">На главную страницу</a>
+    <h2>Сформировать отчет по издержкам</h2>
+
+    <div id="error" class="error-msg">Конечная дата не может быть меньше начальной!</div>
+
+    <form method="GET" id="reportForm">
+        {% for field in form %}
+            <div class="form-group">
+                <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                {{ field }}
+            </div>
+        {% endfor %}
+        <button type="submit" class="btn">Показать отчет</button>
+    </form>
+
+    {% if report_data != None %}
+        <hr>
+        <h3>Результаты поиска: "{{ request.GET.title }}"</h3>
+        <p><strong>Тип:</strong> {{ report_data.first.get_type_display | default:"Выбранный тип" }} |
+           <strong>Период:</strong> с {{ request.GET.start_date }} по {{ request.GET.end_date }}</p>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Дата учета</th>
+                    <th>Сумма (руб.)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in report_data %}
+                <tr>
+                    <td>{{ item.date|date:"d.m.Y" }}</td>
+                    <td>{{ item.amount }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="2" style="text-align: center;">Нет данных за указанный период.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <div class="total">Общая сумма: {{ total_sum }} руб.</div>
+
+        {% if report_data %} <!-- Если нету никаких данных о издержках - отчёт не дается для скачки -->
+            <button type="submit" form="reportForm" name="download" value="1" class="btn btn-download">
+                Скачать в формате .docx
+            </button>
+        {% endif %}
+    {% endif %}
+
+    <script>
+        //проверка дат перед отправкой формы
+        document.getElementById('reportForm').addEventListener('submit', function(e) {
+            // Если нажата кнопка "Скачать", форма уже проверена
+            if (document.activeElement.name === 'download') return;
+
+            const startDate = document.querySelector('input[name="start_date"]').value;
+            const endDate = document.querySelector('input[name="end_date"]').value;
+            const errorDiv = document.getElementById('error');
+
+            if (startDate > endDate) { //если дата начала периода позже конца
+                e.preventDefault(); //останавливаем отправку формы
+                errorDiv.style.display = 'block';
+            } else {
+                errorDiv.style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html>
