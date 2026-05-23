@@ -4,7 +4,7 @@ import xml.etree.ElementTree as ET
 from aiogram import Bot, Dispatcher, types, Router
 from aiogram.filters import CommandStart, Command
 
-TOKEN = '8555542217:AAH_bo50TcT-ppvqluNpsuxN5dtbMnwNy-4'
+TOKEN = 'вставьте-сюда-ваш-токен'
 PROXY_URL = "socks5://182.48.78.141:8008"
 
 
