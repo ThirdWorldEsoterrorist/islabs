@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <title>Вход</title>
+    <style>
+        .error-text { color: red; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h2>Авторизация</h2>
+    {% if error %}
+        <p class="error-text">{{ error }}</p>
+    {% endif %}
+
+    <form method="POST" id="loginForm">
+        {% csrf_token %}
+        <div>
+            <label>Логин:</label> <input type="text" name="login" required>
+        </div>
+        <div>
+            <label>Пароль:</label> <input type="password" name="password">
+        </div>
+        <div>
+            <button type="submit">Войти</button>
+        </div>
+    </form>
+
+    <script>
+        document.getElementById('loginInput').addEventListener('input', function(e) {
+        });
+    </script>
+</body>
+</html>
