@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Путевые листы</title>
+</head>
+<body>
+    <button onclick="location.href='{% url 'index' %}'">На главную</button>
+    <h1>Путевые листы</h1>
+
+    <!-- При открытии окна сразу вызываем обновление списка машин для первого водителя -->
+    <button onclick="openTripModal()">Добавить новую поездку</button>
+
+    <table border="1" style="border-collapse: collapse; margin-top: 15px;">
+        <thead>
+            <tr>
+                <th>Водитель</th>
+                <th>Автомобиль</th>
+                <th>Время выезда</th>
+                <th>Время заезда</th>
+                <th>Нач. километраж</th>
+                <th>Кон. километраж</th>
+                <th>Пробег (вычисл.)</th>
+                <th>Расход топлива (вычисл.)</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for trip in trips %}
+            <tr>
+                <td>{{ trip.driver.full_name }}</td>
+                <td>{{ trip.car.brand }} ({{ trip.car.license_plate }})</td>
+                <td>{{ trip.departure_time|date:"d.m.Y H:i" }}</td>
+                <td>{{ trip.arrival_time|date:"d.m.Y H:i" }}</td>
+                <td>{{ trip.start_mileage }}</td>
+                <td>{{ trip.end_mileage }}</td>
+                <td>{{ trip.distance|floatformat:2 }}</td>
+                <td>{{ trip.fuel_consumption|floatformat:2 }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <dialog id="tripModal">
+        <h3>Добавление поездки</h3>
+        <form>
+            {% csrf_token %}
+            <!-- Добавили onchange, чтобы при смене водителя обновлялись машины -->
+            <p>Водитель:
+                <select id="driver_id" onchange="updateCarSelect()">
+                    <option value="" disabled selected>-- Выберите водителя --</option>
+                    {% for driver in drivers %}
+                        <option value="{{ driver.id }}">{{ driver.full_name }}</option>
+                    {% endfor %}
+                </select>
+            </p>
+
+            <!-- По умолчанию список машин заблокирован -->
+            <p>Автомобиль:
+                <select id="car_id" disabled>
+                    <option value="">-- Сначала выберите водителя --</option>
+                </select>
+            </p>
+
+            <p>Время выезда: <input type="datetime-local" id="departure_time"></p>
+            <p>Время заезда: <input type="datetime-local" id="arrival_time"></p>
+            <p>Начальный километраж: <input type="number" step="0.1" id="start_mileage"></p>
+            <p>Конечный километраж: <input type="number" step="0.1" id="end_mileage"></p>
+
+            <p id="trip-error-msg" style="color: red;"></p>
+
+            <button type="button" onclick="submitTrip()">Сохранить</button>
+            <button type="button" onclick="closeTripModal()">Закрыть</button>
+        </form>
+    </dialog>
+
+    <!-- Передаем структуру связей водитель -> машины в JSON для JavaScript -->
+    <script id="drivers-data" type="application/json">
+        {
+            {% for driver in drivers %}
+                "{{ driver.id }}": [
+                    {% for car in driver.cars.all %}
+                        {"id": "{{ car.id }}", "name": "{{ car.brand }} ({{ car.license_plate }})"}
+                        {% if not forloop.last %},{% endif %}
+                    {% endfor %}
+                ]{% if not forloop.last %},{% endif %}
+            {% endfor %}
+        }
+    </script>
+
+    <script>
+        // Парсим переданные из Django данные
+        const driversCarsRelation = JSON.parse(document.getElementById('drivers-data').textContent);
+
+        function openTripModal() {
+            // Сбрасываем форму при открытии
+            document.getElementById('driver_id').selectedIndex = 0;
+            const carSelect = document.getElementById('car_id');
+            carSelect.innerHTML = '<option value="">-- Сначала выберите водителя --</option>';
+            carSelect.disabled = true;
+            document.getElementById('trip-error-msg').innerText = '';
+
+            document.getElementById('tripModal').showModal();
+        }
+
+        function closeTripModal() {
+            document.getElementById('tripModal').close();
+        }
+
+        function updateCarSelect() {
+            const driverId = document.getElementById('driver_id').value;
+            const carSelect = document.getElementById('car_id');
+
+            // Очищаем текущие опции автомобиля
+            carSelect.innerHTML = '';
+
+            if (!driverId || !driversCarsRelation[driverId] || driversCarsRelation[driverId].length === 0) {
+                carSelect.innerHTML = '<option value="">У этого водителя нет доступных машин</option>';
+                carSelect.disabled = true;
+                return;
+            }
+
+            // Если машины есть, активируем список и наполняем его
+            carSelect.disabled = false;
+
+            driversCarsRelation[driverId].forEach(car => {
+                const option = document.createElement('option');
+                option.value = car.id;
+                option.textContent = car.name;
+                carSelect.appendChild(option);
+            });
+        }
+
+        function submitTrip() {
+            const data = {
+                driver_id: document.getElementById('driver_id').value,
+                car_id: document.getElementById('car_id').value,
+                departure_time: document.getElementById('departure_time').value,
+                arrival_time: document.getElementById('arrival_time').value,
+                start_mileage: document.getElementById('start_mileage').value,
+                end_mileage: document.getElementById('end_mileage').value
+            };
+
+            // Простая валидация на клиенте перед отправкой
+            if (!data.driver_id || !data.car_id) {
+                document.getElementById('trip-error-msg').innerText = "Выберите водителя и автомобиль!";
+                return;
+            }
+
+            fetch("{% url 'trips' %}", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRFToken": document.querySelector('[name=csrfmiddlewaretoken]').value
+                },
+                body: JSON.stringify(data)
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    document.getElementById('trip-error-msg').innerText = data.error;
+                }
+            });
+        }
+    </script>
+</body>
+</html>

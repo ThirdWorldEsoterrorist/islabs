@@ -1,0 +1,134 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Автомобили</title>
+    <script src="{% static 'js/chart.js' %}"></script>
+</head>
+<body>
+    <button onclick="location.href='{% url 'index' %}'">На главную</button>
+    <h1>Таблица автомобилей</h1>
+
+    <button onclick="document.getElementById('carModal').showModal()">Добавить новый автомобиль</button>
+
+    <table border="1" style="border-collapse: collapse; margin-top: 15px;">
+        <thead>
+            <tr>
+                <th>Марка</th>
+                <th>Гос. номер</th>
+                <th>Год выпуска</th>
+                <th>Расход (л/1км)</th>
+                <th>Общий расход топлива</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for car in cars %}
+            <tr>
+                <td>{{ car.brand }}</td>
+                <td>{{ car.license_plate }}</td>
+                <td>{{ car.year }}</td>
+                <td>{{ car.fuel_rate }}</td>
+                <td>{{ car.total_fuel_consumption|floatformat:2 }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <dialog id="carModal">
+        <h3>Добавление автомобиля</h3>
+        <form>
+            {% csrf_token %}
+            <p>Марка: <input type="text" id="brand"></p>
+            <p>Гос. номер: <input type="text" id="license_plate"></p>
+            <p>Год выпуска: <input type="number" id="year"></p>
+            <p>Норма расхода (л): <input type="number" step="0.01" id="fuel_rate"></p>
+
+            <p id="error-msg" style="color: red;"></p>
+
+            <button type="button" onclick="submitCar()">Сохранить</button>
+            <button type="button" onclick="document.getElementById('carModal').close()">Закрыть</button>
+        </form>
+    </dialog>
+
+    <div style="max-width: 700px; margin-top: 30px;">
+        <canvas id="carsChart"></canvas>
+    </div>
+
+    <script>
+        // Сбор данных по машинам
+        const carLabels = [
+            {% for car in cars %} "{{ car.brand }} ({{ car.license_plate }})", {% endfor %}
+        ];
+
+        const carConsumptions = [
+            {% for car in cars %}
+                parseFloat("{{ car.total_fuel_consumption|default:0 }}".replace(',', '.')),
+            {% endfor %}
+        ];
+
+        // Расчет среднего расхода
+        const totalConsumption = carConsumptions.reduce((sum, value) => sum + value, 0);
+        const avgConsumption = carConsumptions.length ? (totalConsumption / carConsumptions.length) : 0;
+        const avgConsumptionData = new Array(carConsumptions.length).fill(avgConsumption);
+
+        // Отрисовка графика автопарка
+        const ctxCars = document.getElementById('carsChart').getContext('2d');
+        new Chart(ctxCars, {
+            type: 'bar',
+            data: {
+                labels: carLabels,
+                datasets: [
+                    {
+                        label: 'Средний расход по парку',
+                        data: avgConsumptionData,
+                        type: 'line',
+                        borderColor: 'red',
+                        borderWidth: 2,
+                        fill: false,
+                        pointRadius: 0,
+                        order: 1
+                    },
+                    {
+                        label: 'Общий расход автомобиля',
+                        data: carConsumptions,
+                        backgroundColor: 'blue',
+                        order: 2
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: { display: true, text: 'Расход топлива (л)' }
+                    }
+                }
+            }
+        });
+
+        // Функция отправки формы (осталась без изменений)
+        function submitCar() {
+            const data = {
+                brand: document.getElementById('brand').value,
+                license_plate: document.getElementById('license_plate').value,
+                year: document.getElementById('year').value,
+                fuel_rate: document.getElementById('fuel_rate').value
+            };
+
+            fetch("{% url 'cars' %}", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRFToken": document.querySelector('[name=csrfmiddlewaretoken]').value
+                },
+                body: JSON.stringify(data)
+            }).then(res => res.json()).then(data => {
+                if (data.success) location.reload();
+                else document.getElementById('error-msg').innerText = data.error;
+            });
+        }
+    </script>
+</body>
+</html>

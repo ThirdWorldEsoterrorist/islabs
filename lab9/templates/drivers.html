@@ -1,0 +1,100 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Водители</title>
+    <script src="{% static 'js/chart.js' %}"></script>
+</head>
+<body>
+    <button onclick="location.href='{% url 'index' %}'">На главную</button>
+    <h1>Таблица водителей</h1>
+
+    <table border="1" style="border-collapse: collapse; margin-top: 15px;">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>ФИО водителя</th>
+                <th>Машины (ID / Марка)</th>
+                <th>Пробег на всех машинах</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for driver in drivers %}
+            <tr>
+                <td>{{ driver.id }}</td>
+                <td>{{ driver.full_name }}</td>
+                <td>
+                    <!-- Проходим циклом по всем машинам водителя -->
+                    {% for car in driver.cars.all %}
+                        {{ car.id }}: {{ car.brand }} ({{ car.license_plate }}){% if not forloop.last %}, <br>{% endif %}
+                    {% empty %}
+                        Нет привязанных машин
+                    {% endfor %}
+                </td>
+                <td>{{ driver.total_mileage|floatformat:2 }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div style="max-width: 700px; margin-top: 30px;">
+        <canvas id="driversChart"></canvas>
+    </div>
+    <script>
+        // Собираем данные из контекста Django в массивы JS
+        const driverLabels = [
+            {% for driver in drivers %} "{{ driver.full_name }}", {% endfor %}
+        ];
+
+        const driverMileages = [
+            {% for driver in drivers %}
+                parseFloat("{{ driver.total_mileage|default:0 }}".replace(',', '.')),
+            {% endfor %}
+        ];
+
+        // Вычисляем средний пробег
+        const totalMileage = driverMileages.reduce((sum, value) => sum + value, 0);
+        const avgMileage = driverMileages.length ? (totalMileage / driverMileages.length) : 0;
+
+        // Массив, заполненный средним значением для горизонтальной линии
+        const avgMileageData = new Array(driverMileages.length).fill(avgMileage);
+
+        // Строим комбинированный график
+        const ctxDrivers = document.getElementById('driversChart').getContext('2d');
+        new Chart(ctxDrivers, {
+            type: 'bar', // Базовый тип — столбики
+            data: {
+                labels: driverLabels,
+                datasets: [
+                    {
+                        label: 'Средний пробег',
+                        data: avgMileageData,
+                        type: 'line', // Переопределяем тип для линии
+                        borderColor: 'red',
+                        borderWidth: 2,
+                        fill: false,
+                        pointRadius: 0, // Убираем точки на линии
+                        order: 1 // Линия поверх столбиков
+                    },
+                    {
+                        label: 'Пробег водителя',
+                        data: driverMileages,
+                        backgroundColor: 'blue',
+                        order: 2
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: { display: true, text: 'Пробег (км)' }
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>
