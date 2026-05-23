@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <title>Агенты</title>
+    <style>
+        .warning-row { background-color: #ff8888; } /* Красный фон для ошибок */
+        .modal { display: none; position: fixed; z-index: 1; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); }
+        .modal-content { background-color: white; margin: 10% auto; padding: 20px; width: 50%; border-radius: 8px; }
+    </style>
+</head>
+<body>
+
+    <h1>Список контрагентов</h1>
+    <button onclick="document.getElementById('agentModal').style.display='block'">Добавить контрагента</button>
+
+    <table border="1" style="width:100%; margin-top: 20px; border-collapse: collapse;">
+        <thead>
+            <tr>
+                <th>Название</th>
+                <th>Полное название</th>
+                <th>Дата</th>
+                <th>ОГРН</th>
+                <th>ИНН</th>
+                <th>КПП</th>
+                <th>Адрес</th>
+                <th>Должность рук.</th>
+                <th>ФИО</th>
+                <th>Действие</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for agent in agents %}
+            <tr class="{% if not agent.inn or agent.inn in duplicate_inns %}warning-row{% endif %}">
+                <td>{{ agent.short_name }}</td>
+                <td>{{ agent.full_name }}</td>
+                <td>{{ agent.registration_date}}</td>
+                <td>{{ agent.ogrn }}</td>
+                <td>{{ agent.inn|default:"НЕ УКАЗАН" }}</td>
+                <td>{{ agent.kpp }}</td>
+                <td>{{ agent.address }}</td>
+                <td>{{ agent.position }}</td>
+                <td>{{ agent.initials_fio }}</td>
+                <td>
+                    {% if not agent.inn or agent.inn in duplicate_inns %}
+                    <a href="{% url 'delete_agent' agent.pk %}"><button>Удалить</button></a>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- Окно внесения контрагента-->
+    <div id="agentModal" class="modal">
+        <div class="modal-content">
+            <span style="float:right; cursor:pointer" onclick="document.getElementById('agentModal').style.display='none'">&times;</span>
+            <h2>Новый агент</h2>
+            <form method="post" action="{% url 'create_agent' %}">
+                {% csrf_token %}
+                {{ form.as_p }}
+                <button type="button" onclick="verifyINN()">Проверить номер ИНН</button>
+                <div id="innResult" style="margin: 10px 0; color: orange; font-weight: bold;"></div>
+                <button type="submit">Сохранить</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+    async function verifyINN() {
+        const innValue = document.querySelector('[name="inn"]').value;
+        const resultDiv = document.getElementById('innResult');
+
+        if (!innValue) {
+            resultDiv.innerHTML = "Введите ИНН для проверки";
+            return;
+        }
+
+        const response = await fetch(`/check_inn/?inn=${innValue}`);
+        const data = await response.json();
+
+        let message = "";
+        if (data.exact.length > 0) {
+            message += "Этот ИНН уже есть в базе. (название компании: " + data.exact[0].short_name + ")<br>";
+        }
+        if (data.partial.length > 0) {
+            message += "Найдены похожие ИНН: " + data.partial.map(a => a.inn).join('; ');
+        }
+
+        resultDiv.innerHTML = message || "ИНН свободен.";
+    }
+    </script>
+
+</body>
+</html>
