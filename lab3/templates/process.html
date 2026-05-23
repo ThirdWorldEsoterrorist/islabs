@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Обработка</title>
+</head>
+<body>
+    <form method="post" enctype="multipart/form-data">
+        <!-- enctype по дефолту другой, этот нужен как раз для работы формы с файлами --->
+        {% csrf_token %}
+        <input type="file" name="file">
+        <button type="submit">Обработать</button>
+    </form>
+
+    {% if results %} <!-- до обработки данных качать нечего, сначала обработка --->
+        <h3>Результаты:</h3>
+        <ul>
+        {% for group, total in results.items %}
+            <li>Группа {{ group }}: {{ total }}</li>
+        {% endfor %}
+        </ul>
+        <button onclick="downloadExcelData()">Скачать данные для Excel</button>
+    {% endif %}
+
+    <script>
+    function downloadExcelData() {
+        //формирование данных для диаграммы
+        let csvContent = "Group,Sum\n";
+        {% for group, total in results.items %}
+        csvContent += "{{ group }},{{ total }}\n";
+        {% endfor %}
+
+        //сохраняем спешиал фор эксель
+        let blob = new Blob([csvContent], {type: "text/csv"});
+        let link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = "data_for_chart.csv";
+        link.click();
+    }
+    </script>
+</body>
+</html>
