@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head><title>Параметры</title></head>
+<body>
+    <h1>АРМ: работа с параметром N</h1>
+    <!-- 6 & 7. Вывод ошибок -->
+    {% if error_msg %}
+        <div style="color: red; border: 1px solid red;">
+           {{ error_msg }}
+        </div>
+    {% endif %}
+
+    <!-- 1. Форма ввода -->
+    <form method="post">{% csrf_token %}{{ input_form.as_p }}<button>Добавить</button></form>
+    <hr>
+
+    <form method="get">
+        {{ filter_form.as_p }}
+        <button id="enable-sound">Построить график выборки</button>
+    </form>
+
+    <div style="display: flex; flex-direction: column; gap: 20px;">
+        {% if chart_line %}
+            <div>
+                <h3>График</h3>
+                <img src="data:image/png;base64,{{ chart_line }}">
+            </div>
+        {% endif %}
+
+        {% if chart_bar %}
+            <div>
+                <h3>Диаграмма</h3>
+                <img src="data:image/png;base64,{{ chart_bar }}">
+            </div>
+        {% endif %}
+    </div>
+
+    <script>
+        {% if play_audio %}
+            setTimeout(playAlarmSignal, 100);
+        {% endif %}
+
+        function playAlarmSignal() {
+            //без скобок не видит, но лучше так, чем через mp3 файл
+            const AudioContextClass = window.AudioContext || window['webkitAudioContext'];
+            const audioCtx = new AudioContextClass();
+            //в браузерах дефолт значение - suspended
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+
+            const oscillator = audioCtx.createOscillator();
+            //в браузерах дефолт значение - suspended
+            const gainNode = audioCtx.createGain();
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            oscillator.type = 'square';
+            oscillator.frequency.setValueAtTime(440, audioCtx.currentTime);
+            gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 1);
+
+            oscillator.start();
+            oscillator.stop(audioCtx.currentTime + 1.0);
+        }
+    </script>
+</body>
+</html>
