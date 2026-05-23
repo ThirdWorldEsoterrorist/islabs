@@ -13,7 +13,7 @@ import asyncio
 import logging
 from aiogram.client.default import DefaultBotProperties
 
-TOKEN = "8703632186:AAEZFL2Y8abCu2QgbwaJ-150tx7LdOBaUUs"
+TOKEN = "вставьте-сюда-ваш-токен"
 
 # состояния
 class FuncBuilder(StatesGroup):
