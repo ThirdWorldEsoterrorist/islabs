@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>АРМОП</title>
+</head>
+<body>
+    <h1>Автоматизированное Рабочее Место Оператора Продаж (АРМОП)</h1>
+    <p>
+        <a href= "{% url 'client_base' %}">
+            <button>База клиентов</button>
+        </a>
+    </p>
+    <p>
+        <a href= "{% url 'product_base' %}">
+            <button>Склад товаров</button>
+        </a>
+    </p>
+    <p>
+        <a href= "{% url 'order_base' %}">
+            <button>База заказов</button>
+        </a>
+    </p>
+    <p>
+        <a href= "{% url 'order_create' %}">
+            <button>Создать заказ</button>
+        </a>
+    </p>
+</body>
+</html>
