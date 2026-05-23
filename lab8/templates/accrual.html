@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Система начислений</title>
+    <style>
+        /* база */
+        body { margin: 40px; color: #333; background: #fafafa; }
+        h1, h3 { font-weight: 400; }
+        .container { max-width: 900px; margin: 0 auto; }
+        .controls-panel { display: flex; gap: 15px; align-items: flex-end; margin-bottom: 20px; background: white; padding: 15px; border-radius: 6px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .input-group { display: flex; flex-direction: column; gap: 5px; }
+        .input-group label { font-size: 12px; color: #666; }
+        input[type="number"], input[type="text"] { padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
+
+        button { padding: 9px 15px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; transition: background 0.2s; }
+        button:hover { background: #0056b3; }
+        .btn-secondary { background: #28a745; }
+        .btn-secondary:hover { background: #218838; }
+
+        /* таблица */
+        table { width: 100%; border-collapse: collapse; background: white; border-radius: 6px; overflow: hidden; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #eee; }
+        th { background: #f1f1f1; font-weight: 600; }
+
+        /* цвета подсветки строк */
+        .row-orange { background-color: #ffe8cc !important; }
+        .row-yellow { background-color: #fff9db !important; }
+        .row-green { background-color: #e6fcf5 !important; }
+        .row-blue { background-color: #e7f5ff !important; }
+
+        /* окно добавления */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); display: flex; justify-content: center; align-items: center; visibility: hidden; opacity: 0; transition: 0.3s; }
+        .modal-overlay.active { visibility: visible; opacity: 1; }
+        .modal-content { background: white; padding: 25px; border-radius: 8px; width: 350px; box-shadow: 0 4px 15px rgba(0,0,0,0.15); position: relative; }
+        .modal-content h3 { margin-top: 0; margin-bottom: 15px; }
+        .modal-content .input-group { margin-bottom: 15px; }
+        .modal-close { position: absolute; top: 10px; right: 15px; font-size: 20px; cursor: pointer; color: #aaa; }
+
+        #error-message { color: #dc3545; font-size: 14px; margin-bottom: 15px; display: none; padding: 10px; background: #f8d7da; border-radius: 4px; border: 1px solid #f5c6cb; font-weight: 500; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Таблица начислений</h1>
+
+    <!-- кнопки -->
+    <div class="controls-panel">
+        <div class="input-group">
+            <label>Нижний порог</label>
+            <input type="number" id="lower-threshold" step="0.01" placeholder="Введите сумму...">
+        </div>
+        <div class="input-group">
+            <label>Верхний порог</label>
+            <input type="number" id="upper-threshold" step="0.01" placeholder="Введите сумму...">
+        </div>
+        <div class="input-group">
+            <label>Кратность</label>
+            <input type="number" id="multiplicity-num" step="0.01" placeholder="Введите сумму...">
+        </div>
+        <button onclick="colorizeTableFrontend()">Применить фильтры</button>
+        <button class="btn-secondary" onclick="openModal()">Добавить начисление</button>
+    </div>
+
+    <!-- таблица -->
+    <table id="accruals-table">
+        <thead>
+            <tr>
+                <th>Номер сотрудника</th>
+                <th>ФИО сотрудника</th>
+                <th>Начисление (руб.)</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in accruals %}
+            <tr class="accrual-row" data-amount="{{ item.payment }}">
+                <td>{{ item.employee_id }}</td>
+                <td>{{ item.full_name }}</td>
+                <td class="payment-cell">{{ item.payment }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- окно добавления -->
+<div class="modal-overlay" id="modal-overlay">
+    <div class="modal-content">
+        <span class="modal-close" onclick="closeModal()">&times;</span>
+        <h3>Добавить начисление</h3>
+
+        <div id="error-message"></div>
+        <form id="add-accrual-form">
+            {% csrf_token %}
+            <div class="input-group">
+                <label>Номер сотрудника</label>
+                <input type="text" name="employee_id" id="new-emp-num">
+            </div>
+            <div class="input-group">
+                <label>ФИО сотрудника</label>
+                <input type="text" name="full_name" id="new-full-name">
+            </div>
+            <div class="input-group">
+                <label>Сумма начисления</label>
+                <input type="number" name="payment" id="new-payment" step="0.01">
+            </div>
+            <button type="submit" style="width: 100%; margin-top: 10px;">Подтвердить</button>
+        </form>
+    </div>
+</div>
+
+<script>
+    function openModal() {
+        document.getElementById('modal-overlay').classList.add('active');
+    }
+    function closeModal() {
+        document.getElementById('modal-overlay').classList.remove('active');
+        document.getElementById('add-accrual-form').reset();
+        document.getElementById('error-message').style.display = 'none';
+    }
+
+    // --- Обработка добавления начисления (AJAX) ---
+    document.getElementById('add-accrual-form').addEventListener('submit', function(e) {
+        e.preventDefault(); // Предотвращаем стандартную перезагрузку страницы
+
+        const formData = new FormData(this);
+        const errorMessage = document.getElementById('error-message');
+
+        // Отправляем POST запрос.
+        fetch('/add_accrual/', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                closeModal();
+
+                // Динамически добавляем новую строку в таблицу
+                const tbody = document.querySelector('#accruals-table tbody');
+                const newRow = document.createElement('tr');
+                newRow.className = 'accrual-row';
+                newRow.setAttribute('data-amount', data.data.payment);
+                newRow.innerHTML = `
+                    <td>${data.data.employee_id}</td>
+                    <td>${data.data.full_name}</td>
+                    <td class="payment-cell">${data.data.payment}</td>
+                `;
+                tbody.appendChild(newRow);
+
+                // Опционально: можно сразу применить фильтры к новой строке
+                colorizeTableFrontend();
+            } else {
+                errorMessage.style.display = 'block';
+                errorMessage.textContent = data.error;
+            }
+        })
+        .catch(error => {
+            console.error('Ошибка:', error);
+            errorMessage.style.display = 'block';
+            errorMessage.textContent = 'Произошла ошибка соединения с сервером.';
+        });
+    });
+
+    // --- Фильтр (раскраска) таблицы ---
+    function colorizeTableFrontend() {
+        const lower = parseFloat(document.getElementById('lower-threshold').value);
+        const upper = parseFloat(document.getElementById('upper-threshold').value);
+        const mult = parseFloat(document.getElementById('multiplicity-num').value);
+
+        const rows = document.querySelectorAll('.accrual-row');
+
+        rows.forEach(row => {
+            //Читаем правильный атрибут data-amount
+            const payment = parseFloat(row.getAttribute('data-amount'));
+
+            // Сбрасываем старые цветовые классы
+            row.classList.remove('row-blue', 'row-orange', 'row-yellow', 'row-green');
+
+            if (isNaN(payment)) return;
+
+            //Убраны точки перед названиями классов
+            if (!isNaN(mult) && mult > 0 && payment % mult === 0) {
+                row.classList.add('row-blue');
+            } else if (!isNaN(upper) && payment > upper) {
+                row.classList.add('row-orange');
+            } else if (!isNaN(lower) && payment < lower) {
+                row.classList.add('row-yellow');
+            } else if (!isNaN(lower) && !isNaN(upper) && payment >= lower && payment <= upper) {
+                row.classList.add('row-green');
+            }
+        });
+    }
+</script>
+</body>
+</html>
