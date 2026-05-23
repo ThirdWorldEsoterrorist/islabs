@@ -37,9 +37,7 @@
 
     {% if report_data != None %}
         <hr>
-        <h3>Результаты поиска: "{{ request.GET.title }}"</h3>
-        <p><strong>Тип:</strong> {{ report_data.first.get_type_display | default:"Выбранный тип" }} |
-           <strong>Период:</strong> с {{ request.GET.start_date }} по {{ request.GET.end_date }}</p>
+        <h3>Информация для отчёта: "{{ request.GET.title }}"</h3>
 
         <table>
             <thead>
